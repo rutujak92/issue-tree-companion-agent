@@ -7,11 +7,20 @@ interface NodeProps {
   isSelected: boolean;
   onSelect: (id: string) => void;
   onUpdate: (id: string, text: string) => void;
+  onToggleExpand: (id: string) => void;
   onAddChild: (parentId: string) => void;
   onDelete: (id: string) => void;
 }
 
-const Node: React.FC<NodeProps> = ({ node, isSelected, onSelect, onUpdate, onAddChild, onDelete }) => {
+const Node: React.FC<NodeProps> = ({ 
+  node, 
+  isSelected, 
+  onSelect, 
+  onUpdate, 
+  onToggleExpand,
+  onAddChild, 
+  onDelete 
+}) => {
   const [isEditing, setIsEditing] = useState(false);
   const [text, setText] = useState(node.text);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -32,6 +41,8 @@ const Node: React.FC<NodeProps> = ({ node, isSelected, onSelect, onUpdate, onAdd
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleBlur();
   };
+
+  const hasChildren = node.children.length > 0;
 
   return (
     <div 
@@ -61,9 +72,33 @@ const Node: React.FC<NodeProps> = ({ node, isSelected, onSelect, onUpdate, onAdd
             {node.text || 'Untitled Issue...'}
           </p>
         )}
-        <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400 select-none">
-          Level {node.level}
-        </span>
+        <div className="flex items-center justify-between mt-1">
+          <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400 select-none">
+            Level {node.level}
+          </span>
+          {hasChildren && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleExpand(node.id);
+              }}
+              className={`p-1 rounded-md transition-colors ${
+                node.isExpanded ? 'bg-slate-50 text-slate-400 hover:text-blue-600' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+              }`}
+              title={node.isExpanded ? "Collapse Branch" : "Expand Branch"}
+            >
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                className={`w-3.5 h-3.5 transform transition-transform ${node.isExpanded ? 'rotate-90' : 'rotate-0'}`} 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Floating Action Buttons */}

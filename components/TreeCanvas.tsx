@@ -8,6 +8,7 @@ interface TreeCanvasProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onUpdate: (id: string, text: string) => void;
+  onToggleExpand: (id: string) => void;
   onAddChild: (parentId: string) => void;
   onDelete: (id: string) => void;
 }
@@ -22,7 +23,8 @@ const TreeCanvas = forwardRef<TreeCanvasHandle, TreeCanvasProps>(({
   tree, 
   selectedId, 
   onSelect, 
-  onUpdate, 
+  onUpdate,
+  onToggleExpand,
   onAddChild, 
   onDelete 
 }, ref) => {
@@ -108,6 +110,9 @@ const TreeCanvas = forwardRef<TreeCanvasHandle, TreeCanvasProps>(({
     const node = tree.nodes[nodeId];
     if (!node) return <React.Fragment />;
 
+    const hasChildren = node.children.length > 0;
+    const isExpanded = node.isExpanded;
+
     return (
       <div key={nodeId} className="flex flex-col items-start gap-12">
         <div className="flex items-center">
@@ -117,12 +122,13 @@ const TreeCanvas = forwardRef<TreeCanvasHandle, TreeCanvasProps>(({
               isSelected={selectedId === nodeId}
               onSelect={onSelect}
               onUpdate={onUpdate}
+              onToggleExpand={onToggleExpand}
               onAddChild={onAddChild}
               onDelete={onDelete}
             />
           </div>
           
-          {node.children.length > 0 && (
+          {hasChildren && isExpanded && (
             <div className="relative h-px w-16 bg-slate-300">
                {/* Vertical spine for connectors */}
                <div className="absolute left-full top-1/2 -translate-y-1/2 flex flex-col gap-12">
@@ -134,6 +140,15 @@ const TreeCanvas = forwardRef<TreeCanvasHandle, TreeCanvasProps>(({
                     </div>
                   ))}
                </div>
+            </div>
+          )}
+
+          {hasChildren && !isExpanded && (
+            <div className="ml-4 flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded-full border border-slate-200 shadow-sm animate-pulse pointer-events-none">
+              <span className="w-1.5 h-1.5 bg-slate-400 rounded-full" />
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                {node.children.length} {node.children.length === 1 ? 'branch' : 'branches'} hidden
+              </span>
             </div>
           )}
         </div>

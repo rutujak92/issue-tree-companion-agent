@@ -1,14 +1,40 @@
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { TreeData, IssueNode } from './types';
 import ProblemSetup from './components/ProblemSetup';
 import TreeCanvas, { TreeCanvasHandle } from './components/TreeCanvas';
 import Sidebar from './components/Sidebar';
 
+const STORAGE_KEY = 'logical_root_saved_tree';
+
 const App: React.FC = () => {
-  const [tree, setTree] = useState<TreeData | null>(null);
+  // Initialize state from localStorage if available
+  const [tree, setTree] = useState<TreeData | null>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed to parse saved tree", e);
+        return null;
+      }
+    }
+    return null;
+  });
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const canvasRef = useRef<TreeCanvasHandle>(null);
+
+  // Persistence Effect: Save to localStorage whenever tree changes
+  useEffect(() => {
+    if (tree) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(tree));
+      setLastSaved(new Date());
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }, [tree]);
 
   const initTree = useCallback((setup: Partial<TreeData>) => {
     const rootId = crypto.randomUUID();
@@ -50,7 +76,11 @@ const App: React.FC = () => {
         ...prev,
         nodes: {
           ...prev.nodes,
-          [parentId]: { ...parentNode, children: [...parentNode.children, newNodeId] },
+          [parentId]: { 
+            ...parentNode, 
+            children: [...parentNode.children, newNodeId],
+            isExpanded: true // Automatically expand when adding a child
+          },
           [newNodeId]: newNode,
         },
       };
@@ -71,6 +101,19 @@ const App: React.FC = () => {
     });
   }, []);
 
+  const toggleExpand = useCallback((id: string) => {
+    setTree(prev => {
+      if (!prev || !prev.nodes[id]) return prev;
+      return {
+        ...prev,
+        nodes: {
+          ...prev.nodes,
+          [id]: { ...prev.nodes[id], isExpanded: !prev.nodes[id].isExpanded },
+        },
+      };
+    });
+  }, []);
+
   const deleteNode = useCallback((id: string) => {
     setTree(prev => {
       if (!prev || !prev.nodes[id] || !prev.nodes[id].parentId) return prev;
@@ -83,8 +126,10 @@ const App: React.FC = () => {
       const newNodes = { ...prev.nodes };
       const removeRecursive = (targetId: string) => {
         const node = newNodes[targetId];
-        node.children.forEach(childId => removeRecursive(childId));
-        delete newNodes[targetId];
+        if (node) {
+          node.children.forEach(childId => removeRecursive(childId));
+          delete newNodes[targetId];
+        }
       };
       
       removeRecursive(id);
@@ -97,6 +142,14 @@ const App: React.FC = () => {
     });
     setSelectedId(null);
   }, []);
+
+  const handleNewProject = () => {
+    if (confirm("Are you sure you want to start a new project? Current progress will be deleted.")) {
+      setTree(null);
+      setSelectedId(null);
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  };
 
   const handleExport = () => {
     window.print();
@@ -117,7 +170,15 @@ const App: React.FC = () => {
         <div className="flex items-center gap-4">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">L</div>
           <div>
-            <h1 className="text-sm font-bold text-slate-900 leading-none">LogicalRoot</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-sm font-bold text-slate-900 leading-none">LogicalRoot</h1>
+              {lastSaved && (
+                <span className="text-[9px] text-emerald-500 font-bold uppercase tracking-tighter flex items-center gap-1">
+                  <span className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse" />
+                  Saved
+                </span>
+              )}
+            </div>
             <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mt-1">Issue Tree Builder</p>
           </div>
           <div className="h-6 w-px bg-slate-200 mx-2" />
@@ -129,8 +190,8 @@ const App: React.FC = () => {
         
         <div className="flex items-center gap-3">
           <button 
-            onClick={() => setTree(null)}
-            className="px-3 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors"
+            onClick={handleNewProject}
+            className="px-3 py-2 text-xs font-bold text-slate-500 hover:text-red-500 transition-colors"
           >
             New Project
           </button>
@@ -160,6 +221,7 @@ const App: React.FC = () => {
           selectedId={selectedId}
           onSelect={setSelectedId}
           onUpdate={updateNode}
+          onToggleExpand={toggleExpand}
           onAddChild={(pid) => addNode(pid)}
           onDelete={deleteNode}
         />
